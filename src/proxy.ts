@@ -1,12 +1,13 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
-export async function proxy(req: NextRequest) {
-  const session = await auth();
+export const { auth } = NextAuth(authConfig);
+
+export default auth((req) => {
   const { nextUrl } = req;
-  const isLoggedIn = !!session?.user;
-  const userRole = (session?.user as any)?.role;
+  const isLoggedIn = !!req.auth;
+  const userRole = (req.auth?.user as any)?.role;
 
   const isAuthPage =
     nextUrl.pathname.startsWith("/login") ||
@@ -19,33 +20,47 @@ export async function proxy(req: NextRequest) {
     nextUrl.pathname.startsWith("/dashboard") ||
     nextUrl.pathname.startsWith("/get-coverage");
 
+  // Admin login page: redirect to admin dashboard if already logged in as admin
   if (isAdminLoginPage) {
     if (isLoggedIn && userRole === "ADMIN") {
-      return NextResponse.redirect(new URL("/admin", req.url));
+      const url = new URL("/admin", req.url);
+      url.search = nextUrl.search;
+      return NextResponse.redirect(url);
     }
     return NextResponse.next();
   }
 
+  // Admin pages: require ADMIN role
   if (isAdminPage) {
     if (!isLoggedIn) {
-      return NextResponse.redirect(new URL("/admin/login", req.url));
+      const url = new URL("/admin/login", req.url);
+      url.search = nextUrl.search;
+      return NextResponse.redirect(url);
     }
     if (userRole !== "ADMIN") {
-      return NextResponse.redirect(new URL("/login", req.url));
+      const url = new URL("/login", req.url);
+      url.search = nextUrl.search;
+      return NextResponse.redirect(url);
     }
     return NextResponse.next();
   }
 
+  // Auth pages: redirect to dashboard if already logged in
   if (isAuthPage && isLoggedIn) {
-    return NextResponse.redirect(new URL("/get-coverage", req.url));
+    const url = new URL("/dashboard", req.url);
+    url.search = nextUrl.search;
+    return NextResponse.redirect(url);
   }
 
+  // Protected pages: require login
   if (isProtectedPage && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    const url = new URL("/login", req.url);
+    url.search = nextUrl.search;
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [
