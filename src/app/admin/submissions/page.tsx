@@ -33,13 +33,16 @@ export default function AdminSubmissionsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState("APPROVED");
 
-  async function loadApps(status?: string) {
-    const url = status && status !== "ALL" ? `/api/admin/submissions?status=${status}` : "/api/admin/submissions";
+  async function loadApps(statusFilter?: string) {
+    setLoading(true);
+    const url = statusFilter && statusFilter !== "ALL" ? `/api/admin/submissions?status=${statusFilter}` : "/api/admin/submissions";
     const r = await fetch(url);
     const d = await r.json();
     setApplications(d.applications || []);
+    setSelectedIds(new Set()); // Reset selections on load
     setLoading(false);
   }
 
@@ -60,24 +63,158 @@ export default function AdminSubmissionsPage() {
     loadApps(filter);
   }
 
+  /* --- BULK ACTIONS --- */
+  function toggleSelectAll(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.checked) {
+      setSelectedIds(new Set(applications.map(a => a.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  }
+
+  function toggleSelectOne(appId: string) {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(appId)) newSet.delete(appId);
+    else newSet.add(appId);
+    setSelectedIds(newSet);
+  }
+
+  async function performBulkAction(action: "DELETE" | "UPDATE_STATUS") {
+    if (selectedIds.size === 0) return;
+    if (action === "DELETE" && !confirm(`Delete ${selectedIds.size} applications permanently?`)) return;
+    
+    await fetch("/api/admin/submissions/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action,
+        applicationIds: Array.from(selectedIds),
+        status: action === "UPDATE_STATUS" ? bulkStatus : undefined
+      }),
+    });
+    loadApps(filter);
+  }
+
+  /* --- CSV EXPORT --- */
+  function exportCSV(appsToExport: Application[], filenamePrefix: string) {
+    if (appsToExport.length === 0) return alert("No applications to export.");
+    
+    const headers = [
+      "ID", "Date", "Status", "Company", "Requester Name", "Requester Email",
+      "Cargo Type", "Shipping Mode", "International", "Start Port", "End Port",
+      "Deductible Amount ($)", "Admin Fee ($)", "User Account Email"
+    ];
+    
+    const rows = appsToExport.map(app => [
+      `"${app.id}"`,
+      `"${new Date(app.createdAt).toLocaleString()}"`,
+      `"${app.status}"`,
+      `"${app.company.replace(/"/g, '""')}"`,
+      `"${app.fullName.replace(/"/g, '""')}"`,
+      `"${app.email}"`,
+      `"${app.cargoType}"`,
+      `"${app.shippingMode}"`,
+      app.isInternational ? "Yes" : "No",
+      `"${app.startPort.replace(/"/g, '""')}"`,
+      `"${app.endPort.replace(/"/g, '""')}"`,
+      app.deductibleAmount,
+      app.adminFee,
+      `"${app.user?.email || ""}"`,
+    ]);
+    
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `cargodeductible_${filenamePrefix}_${new Date().toISOString().split("T")[0]}.csv`;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  const selectedCount = selectedIds.size;
+  const allSelected = applications.length > 0 && selectedCount === applications.length;
+
   return (
     <>
       <div className="admin-topbar">
-        <h1 className="admin-page-title">Submissions</h1>
-        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{applications.length} shown</span>
+        <div>
+          <h1 className="admin-page-title">Submissions</h1>
+          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{applications.length} total shown</span>
+        </div>
+        
+        <div style={{ display: "flex", gap: "10px" }}>
+          {selectedCount > 0 ? (
+            <button 
+              className="action-btn" 
+              style={{ padding: "8px 16px", background: "white", border: "1px solid #d1d5db" }}
+              onClick={() => exportCSV(applications.filter(a => selectedIds.has(a.id)), "selected")}
+            >
+              📥 Export Selected ({selectedCount})
+            </button>
+          ) : (
+             <button 
+              className="action-btn" 
+              style={{ padding: "8px 16px", background: "white", border: "1px solid #d1d5db" }}
+              onClick={() => exportCSV(applications, filter.toLowerCase())}
+            >
+              📥 Export All Shown
+            </button>
+          )}
+        </div>
       </div>
+
       <div className="admin-body">
         <div className="data-table">
-          <div className="table-filter">
-            {FILTERS.map(f => (
-              <button
-                key={f}
-                className={`filter-btn${filter === f ? " active" : ""}`}
-                onClick={() => setFilter(f)}
-              >
-                {f.charAt(0) + f.slice(1).toLowerCase()}
-              </button>
-            ))}
+          <div className="table-filter" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "16px" }}>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {FILTERS.map(f => (
+                <button
+                  key={f}
+                  className={`filter-btn${filter === f ? " active" : ""}`}
+                  onClick={() => setFilter(f)}
+                >
+                  {f.charAt(0) + f.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
+
+            {selectedCount > 0 && (
+              <div style={{ display: "flex", gap: "12px", alignItems: "center", background: "#f8fafc", padding: "6px 12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                <span style={{ fontSize: "13px", fontWeight: "600", color: "#334155" }}>
+                  {selectedCount} selected:
+                </span>
+                <select 
+                  className="select-status" 
+                  style={{ padding: "4px 8px" }}
+                  value={bulkStatus}
+                  onChange={e => setBulkStatus(e.target.value)}
+                >
+                  <option value="SUBMITTED">Submitted</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="REJECTED">Rejected</option>
+                </select>
+                <button 
+                  className="btn-primary" 
+                  style={{ padding: "4px 12px", fontSize: "12px" }}
+                  onClick={() => performBulkAction("UPDATE_STATUS")}
+                >
+                  Apply Status
+                </button>
+                <button 
+                  className="action-btn action-delete"
+                  onClick={() => performBulkAction("DELETE")}
+                  style={{ padding: "4px 12px", fontSize: "12px" }}
+                >
+                  Delete Selected
+                </button>
+              </div>
+            )}
           </div>
 
           {loading ? (
@@ -91,6 +228,14 @@ export default function AdminSubmissionsPage() {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: "40px" }}>
+                    <input 
+                      type="checkbox" 
+                      style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
                   <th>Company</th>
                   <th>Route</th>
                   <th>Deductible</th>
@@ -103,7 +248,15 @@ export default function AdminSubmissionsPage() {
               </thead>
               <tbody>
                 {applications.map(app => (
-                  <tr key={app.id}>
+                  <tr key={app.id} className={selectedIds.has(app.id) ? "row-selected" : ""}>
+                    <td>
+                      <input 
+                        type="checkbox" 
+                        style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                        checked={selectedIds.has(app.id)}
+                        onChange={() => toggleSelectOne(app.id)}
+                      />
+                    </td>
                     <td>
                       <div style={{ fontWeight: 600 }}>{app.company}</div>
                       <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{app.fullName}</div>
