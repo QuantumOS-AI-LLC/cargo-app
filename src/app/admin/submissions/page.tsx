@@ -4,19 +4,28 @@ import { useEffect, useState } from "react";
 
 type Application = {
   id: string;
+  userId: string;
   company: string;
   fullName: string;
   email: string;
+  phone: string;
   startPort: string;
   endPort: string;
   cargoType: string;
   shippingMode: string;
-  deductibleAmount: number;
-  adminFee: number;
+  cargoSize: string;
+  cargoValue: number;
+  containerGrade: string;
   isInternational: boolean;
+  deductibleAmount: number;
+  insurancePremium: number;
+  deductible2: number | null;
+  premium2: number | null;
+  adminFee: number;
   status: string;
   adminNotes: string | null;
   createdAt: string;
+  updatedAt: string;
   user: { name: string | null; email: string };
 };
 
@@ -35,6 +44,7 @@ export default function AdminSubmissionsPage() {
   const [filter, setFilter] = useState("ALL");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState("APPROVED");
+  const [viewingApp, setViewingApp] = useState<Application | null>(null);
 
   async function loadApps(statusFilter?: string) {
     setLoading(true);
@@ -43,6 +53,7 @@ export default function AdminSubmissionsPage() {
     const d = await r.json();
     setApplications(d.applications || []);
     setSelectedIds(new Set()); // Reset selections on load
+
     setLoading(false);
   }
 
@@ -100,9 +111,10 @@ export default function AdminSubmissionsPage() {
     if (appsToExport.length === 0) return alert("No applications to export.");
     
     const headers = [
-      "ID", "Date", "Status", "Company", "Requester Name", "Requester Email",
-      "Cargo Type", "Shipping Mode", "International", "Start Port", "End Port",
-      "Deductible Amount ($)", "Admin Fee ($)", "User Account Email"
+      "ID", "Date Submitted", "Status", "Company", "Requester Name", "Requester Email", "Requester Phone",
+      "Cargo Type", "Shipping Mode", "Cargo Size", "Cargo Value ($)", "International", "Start Port", "End Port",
+      "Container Grade", "Insurance Premium ($)", "Deductible Amount ($)", 
+      "Premium 2 ($)", "Deductible 2 ($)", "Admin Fee ($)", "Admin Notes", "User Account Email", "Last Updated"
     ];
     
     const rows = appsToExport.map(app => [
@@ -112,14 +124,23 @@ export default function AdminSubmissionsPage() {
       `"${app.company.replace(/"/g, '""')}"`,
       `"${app.fullName.replace(/"/g, '""')}"`,
       `"${app.email}"`,
+      `"${app.phone}"`,
       `"${app.cargoType}"`,
       `"${app.shippingMode}"`,
+      `"${app.cargoSize}"`,
+      app.cargoValue,
       app.isInternational ? "Yes" : "No",
       `"${app.startPort.replace(/"/g, '""')}"`,
       `"${app.endPort.replace(/"/g, '""')}"`,
+      `"${app.containerGrade}"`,
+      app.insurancePremium,
       app.deductibleAmount,
+      app.premium2 || "",
+      app.deductible2 || "",
       app.adminFee,
+      `"${(app.adminNotes || "").replace(/"/g, '""')}"`,
       `"${app.user?.email || ""}"`,
+      `"${new Date(app.updatedAt).toLocaleString()}"`,
     ]);
     
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
@@ -248,8 +269,13 @@ export default function AdminSubmissionsPage() {
               </thead>
               <tbody>
                 {applications.map(app => (
-                  <tr key={app.id} className={selectedIds.has(app.id) ? "row-selected" : ""}>
-                    <td>
+                  <tr 
+                    key={app.id} 
+                    className={selectedIds.has(app.id) ? "row-selected" : ""}
+                    onClick={() => setViewingApp(app)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <td onClick={e => e.stopPropagation()}>
                       <input 
                         type="checkbox" 
                         style={{ cursor: "pointer", width: "16px", height: "16px" }}
@@ -277,7 +303,7 @@ export default function AdminSubmissionsPage() {
                         {app.status.toLowerCase()}
                       </span>
                     </td>
-                    <td>
+                    <td onClick={e => e.stopPropagation()}>
                       <select
                         className="select-status"
                         value={app.status}
@@ -304,6 +330,89 @@ export default function AdminSubmissionsPage() {
           )}
         </div>
       </div>
+
+      {viewingApp && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
+        }} onClick={() => setViewingApp(null)}>
+          <div style={{
+            background: "white", padding: "32px", borderRadius: "12px", width: "90%", maxWidth: "800px",
+            maxHeight: "90vh", overflowY: "auto", position: "relative", boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1)"
+          }} onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setViewingApp(null)}
+              style={{ position: "absolute", top: "20px", right: "24px", fontSize: "24px", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
+            >×</button>
+            <h2 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "24px", paddingBottom: "16px", borderBottom: "1px solid #e2e8f0" }}>
+              Application Details
+            </h2>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+              <div>
+                <h3 style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Applicant Info</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px" }}>
+                  <div><span style={{ color: "var(--text-muted)" }}>Company:</span> <strong style={{color:"#0f172a"}}>{viewingApp.company}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Name:</span> <strong style={{color:"#0f172a"}}>{viewingApp.fullName}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Email:</span> <strong style={{color:"#0f172a"}}>{viewingApp.email}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Phone:</span> <strong style={{color:"#0f172a"}}>{viewingApp.phone}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>User Account:</span> <strong style={{color:"#0f172a"}}>{viewingApp.user?.email || "N/A"}</strong></div>
+                </div>
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Shipment Info</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px" }}>
+                  <div><span style={{ color: "var(--text-muted)" }}>Route:</span> <strong style={{color:"#0f172a"}}>{viewingApp.startPort} → {viewingApp.endPort}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Type:</span> <strong style={{color:"#0f172a"}}>{viewingApp.isInternational ? "International" : "Domestic"}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Mode:</span> <strong style={{color:"#0f172a"}}>{viewingApp.shippingMode}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Cargo:</span> <strong style={{color:"#0f172a"}}>{viewingApp.cargoType}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Container Grade:</span> <strong style={{color:"#0f172a"}}>{viewingApp.containerGrade}</strong></div>
+                </div>
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Financials</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px" }}>
+                  <div><span style={{ color: "var(--text-muted)" }}>Cargo Value:</span> <strong style={{color:"#0f172a"}}>${viewingApp.cargoValue?.toLocaleString()}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Insurance Premium:</span> <strong style={{color:"#0f172a"}}>${viewingApp.insurancePremium?.toLocaleString()}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Deductible Amount:</span> <strong style={{color:"#0f172a"}}>${viewingApp.deductibleAmount?.toLocaleString()}</strong></div>
+                  {viewingApp.premium2 && viewingApp.deductible2 && (
+                    <>
+                      <div><span style={{ color: "var(--text-muted)" }}>Option 2 Premium:</span> <strong style={{color:"#0f172a"}}>${viewingApp.premium2?.toLocaleString()}</strong></div>
+                      <div><span style={{ color: "var(--text-muted)" }}>Option 2 Deductible:</span> <strong style={{color:"#0f172a"}}>${viewingApp.deductible2?.toLocaleString()}</strong></div>
+                    </>
+                  )}
+                  <div><span style={{ color: "var(--text-muted)" }}>Admin Fee:</span> <strong style={{color:"#0f172a"}}>${viewingApp.adminFee?.toFixed(2)}</strong></div>
+                </div>
+              </div>
+              
+              <div>
+                <h3 style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Status & Admin</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px" }}>
+                  <div><span style={{ color: "var(--text-muted)" }}>Status:</span> <span className={STATUS_CLASS[viewingApp.status] || "badge"} style={{ marginLeft: "8px" }}>{viewingApp.status}</span></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Date Submitted:</span> <strong style={{color:"#0f172a"}}>{new Date(viewingApp.createdAt).toLocaleString()}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Last Updated:</span> <strong style={{color:"#0f172a"}}>{new Date(viewingApp.updatedAt).toLocaleString()}</strong></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Application ID:</span> <strong style={{color:"#0f172a", fontSize:"12px", fontFamily:"monospace"}}>{viewingApp.id}</strong></div>
+                </div>
+              </div>
+            </div>
+
+            {viewingApp.adminNotes && (
+              <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid #e2e8f0" }}>
+                 <div>
+                   <h3 style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "8px" }}>Internal Admin Notes</h3>
+                   <p style={{ fontSize: "14px", color: "#334155", background: "#fffbeb", border: "1px solid #fde68a", padding: "12px", borderRadius: "6px", whiteSpace: "pre-wrap" }}>{viewingApp.adminNotes}</p>
+                 </div>
+              </div>
+            )}
+            
+            <div style={{ marginTop: "32px", display: "flex", justifyContent: "flex-end" }}>
+               <button className="btn-primary" onClick={() => setViewingApp(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
