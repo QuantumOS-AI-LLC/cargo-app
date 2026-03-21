@@ -46,10 +46,29 @@ export default function GetCoveragePage() {
       }),
     });
     setLoading(false);
+    
+    const d = await res.json();
     if (!res.ok) {
-      const d = await res.json();
       setError(d.error || "Failed to submit application.");
     } else {
+      try {
+        if (typeof window !== "undefined" && (window as any).Refferq) {
+          const promiseOrVoid = (window as any).Refferq.trackConversion({
+            email: form.email,
+            name: form.fullName,
+            amount: Math.round((d.application?.adminFee || 0) * 100), // convert to cents
+            currency: 'USD',
+            orderId: d.application?.id // use application ID as orderId
+          });
+          if (promiseOrVoid instanceof Promise) {
+            await promiseOrVoid;
+          } else {
+             await new Promise(r => setTimeout(r, 800)); // Give network time to send
+          }
+        }
+      } catch (e) {
+        console.error("Refferq tracking error:", e);
+      }
       router.push("/dashboard");
     }
   }

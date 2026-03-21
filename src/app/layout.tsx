@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        {children}
+        <Script 
+          src="https://refferq-six.vercel.app/scripts/refferq-tracker.js" 
+          data-api-url="https://refferq-six.vercel.app" 
+          data-api-key={process.env.NEXT_PUBLIC_REFFERQ_API_KEY}
+          strategy="afterInteractive" 
+        />
+      </body>
     </html>
   );
 }
