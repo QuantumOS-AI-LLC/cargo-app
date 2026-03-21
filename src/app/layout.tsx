@@ -21,7 +21,7 @@ export default function RootLayout({
           src="https://refferq-six.vercel.app/scripts/refferq-tracker.js" 
           data-api-url="https://refferq-six.vercel.app" 
           data-api-key={process.env.NEXT_PUBLIC_REFFERQ_API_KEY}
-          strategy="afterInteractive" 
+          strategy="beforeInteractive" 
         />
       </body>
     </html>
