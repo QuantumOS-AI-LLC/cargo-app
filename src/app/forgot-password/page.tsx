@@ -7,14 +7,30 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    // Simulate sending reset link (no email service configured yet)
-    await new Promise(r => setTimeout(r, 1000));
-    setLoading(false);
-    setSent(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      setLoading(false);
+      if (!res.ok) {
+        setError("Failed to send reset link. Please try again.");
+      } else {
+        setSent(true);
+      }
+    } catch (err) {
+      setLoading(false);
+      setError("An unexpected error occurred.");
+    }
   }
 
   return (
@@ -34,7 +50,8 @@ export default function ForgotPasswordPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
-            <div className="form-group">
+            {error && <div className="error-message">{error}</div>}
+            <div className="form-group" style={{ marginTop: error ? "16px" : 0 }}>
               <label className="form-label" style={{ textAlign: "left" }}>Email</label>
               <div className="form-input-wrapper">
                 <span className="input-icon">✉️</span>

@@ -130,7 +130,7 @@ export default function DashboardPage() {
       </main>
 
       <footer className="footer">
-        © 2026 <a href="https://CargoDecutible.com">CargoDeductible.com</a> — We cover your deductible so you don&apos;t have out-of-pocket costs.
+        © 2026 <a href={process.env.NEXT_PUBLIC_APP_URL || "/"}>CargoDeductible</a> — We cover your deductible so you don&apos;t have out-of-pocket costs.
       </footer>
     </div>
   );
