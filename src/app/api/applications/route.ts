@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -23,6 +24,9 @@ export async function POST(req: NextRequest) {
     const feeRate = isInternational ? 0.0325 : 0.025;
     const adminFee = deductibleAmount * feeRate;
 
+    const cookieStore = await cookies();
+    const referralId = cookieStore.get("refref-refcode")?.value || null;
+
     const application = await prisma.application.create({
       data: {
         userId,
@@ -44,6 +48,7 @@ export async function POST(req: NextRequest) {
         premium2: premium2 ? Number(premium2) : null,
         adminFee,
         status: "SUBMITTED",
+        referred_by: referralId,
       },
     });
 

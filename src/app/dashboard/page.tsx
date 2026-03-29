@@ -3,16 +3,25 @@
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
+import ApplicationDetails from "@/components/ApplicationDetails";
 
 type Application = {
   id: string;
+  fullName: string;
   company: string;
+  email: string;
+  phone: string;
   startPort: string;
   endPort: string;
   deductibleAmount: number;
+  insurancePremium: number;
+  deductible2?: number | null;
+  premium2?: number | null;
   adminFee: number;
+  isPaid: boolean;
   status: string;
   shippingMode: string;
+  isInternational: boolean;
   createdAt: string;
 };
 
@@ -40,13 +49,20 @@ function formatMoney(n: number) {
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [applications, setApplications] = useState<Application[]>([]);
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/applications")
       .then(r => r.json())
-      .then(d => { setApplications(d.applications || []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(d => { 
+        setApplications(d.applications || []); 
+        setLoading(false); 
+      })
+      .catch((err) => {
+        console.error("Fetch error:", err);
+        setLoading(false);
+      });
   }, []);
 
   return (
@@ -75,14 +91,30 @@ export default function DashboardPage() {
       <main>
         <div className="container">
           <div className="page-header">
-            <h1 className="page-title">Applications</h1>
-            <p className="page-subtitle">Track your cargo deductible coverage applications.</p>
+            {selectedApp ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+                <button 
+                  onClick={() => setSelectedApp(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: "14px", color: "var(--blue-accent)", fontWeight: 600, padding: 0 }}
+                >
+                  ← Back to List
+                </button>
+              </div>
+            ) : null}
+            <h1 className="page-title">{selectedApp ? "Application Details" : "Applications"}</h1>
+            <p className="page-subtitle">
+              {selectedApp 
+                ? `Reviewing your request for ${selectedApp.company}`
+                : "Track your cargo deductible coverage applications."}
+            </p>
           </div>
 
           {loading ? (
             <div style={{ textAlign: "center", padding: "60px", color: "var(--text-muted)" }}>
               Loading applications...
             </div>
+          ) : selectedApp ? (
+            <ApplicationDetails application={selectedApp} />
           ) : applications.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📋</div>
@@ -95,12 +127,17 @@ export default function DashboardPage() {
           ) : (
             <div className="card-list">
               {applications.map(app => (
-                <div key={app.id} className="app-card">
+                <div 
+                  key={app.id} 
+                  className="app-card" 
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setSelectedApp(app)}
+                >
                   <div className="app-card-header">
                     <div className="app-card-info">
                       <div className="app-icon">{SHIP_ICON[app.shippingMode] || "📦"}</div>
                       <div>
-                        <div className="app-company">{app.company}</div>
+                        <div className="app-company">{app.company} {app.isPaid && <span style={{ color: "#16a34a", fontSize: "11px", fontWeight: 600, marginLeft: "8px" }}>● Paid</span>}</div>
                         <div className="app-route">{app.startPort} → {app.endPort}</div>
                       </div>
                     </div>

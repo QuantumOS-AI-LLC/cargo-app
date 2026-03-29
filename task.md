@@ -1,0 +1,19 @@
+- [x] **Phase 1: Database & Dependencies**
+    - [x] Install `stripe` & `@stripe/stripe-js`
+    - [x] Update `prisma/schema.prisma` with payment fields
+    - [x] Regenerate Prisma client (`npx prisma generate`)
+    - [x] Push schema to database (`npx prisma db push`)
+- [x] **Phase 2: Stripe Backend Implementation**
+    - [x] Create Stripe Checkout Session API (`/api/checkout`)
+    - [x] Create Stripe Webhook API (`/api/webhooks/stripe`)
+    - [/] Update Applications API to return payment status
+- [x] **Phase 3: Frontend & Dashboard Improvements**
+    - [x] Update Application type and dashboard data fetching
+    - [x] Implement "Quote Summary" UI component (matching screenshots)
+    - [x] Implement "Coverage Policy" accordion (matching screenshots)
+    - [x] Add "Pay Admin Fee" button and Stripe Checkout flow
+- [x] **Phase 4: Verification**
+    - [x] Add Stripe Sandbox keys to `.env`
+    - [x] Test Checkout session generation
+    - [x] Test Webhook endpoint with Stripe CLI
+    - [x] End-to-end payment flow verification

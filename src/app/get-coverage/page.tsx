@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
+import Script from "next/script";
 
 type CargoType = "HARD_DURABLE" | "CLOTHES_APPAREL";
 type ShippingMode = "SEA" | "AIR" | "LAND";
@@ -69,7 +70,30 @@ export default function GetCoveragePage() {
       } catch (e) {
         console.error("Refferq tracking error:", e);
       }
-      router.push("/dashboard");
+
+      // Add LeadConnector tracking
+      try {
+        if (typeof window !== "undefined" && (window as any).affiliateManager) {
+          const names = form.fullName.trim().split(" ");
+          const firstName = names[0];
+          const lastName = names.slice(1).join(" ");
+          
+          (window as any).affiliateManager.trackLead({
+            firstName: firstName || "",
+            lastName: lastName || "",
+            email: form.email,
+          }, function() {
+            console.log('Lead created successfully');
+          });
+        }
+      } catch (e) {
+        console.error("LeadConnector tracking error:", e);
+      }
+
+      // Wait 1 second before redirecting as per documentation
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1000);
     }
   }
 
@@ -150,21 +174,21 @@ export default function GetCoveragePage() {
             <div className="form-section">
               <p className="form-section-title">Applicant Information</p>
               <div className="input-grid-2" style={{ marginBottom: "12px" }}>
-                <div className="inline-input-group">
+                <div className="inline-input-group" suppressHydrationWarning>
                   <label className="inline-label">Full Name *</label>
                   <input type="text" name="fullName" className="field-input" placeholder="John Smith" value={form.fullName} onChange={handleChange} required />
                 </div>
-                <div className="inline-input-group">
+                <div className="inline-input-group" suppressHydrationWarning>
                   <label className="inline-label">Company *</label>
                   <input type="text" name="company" className="field-input" placeholder="Acme Freight LLC" value={form.company} onChange={handleChange} required />
                 </div>
               </div>
               <div className="input-grid-2">
-                <div className="inline-input-group">
+                <div className="inline-input-group" suppressHydrationWarning>
                   <label className="inline-label">Email</label>
                   <input type="email" name="email" className="field-input" placeholder="john@acmefreight.com" value={form.email} onChange={handleChange} required />
                 </div>
-                <div className="inline-input-group">
+                <div className="inline-input-group" suppressHydrationWarning>
                   <label className="inline-label">Phone</label>
                   <input type="tel" name="phone" className="field-input" placeholder="+1 (555) 000-0000" value={form.phone} onChange={handleChange} />
                 </div>
@@ -175,11 +199,11 @@ export default function GetCoveragePage() {
             <div className="form-section">
               <p className="form-section-title">Shipment Details</p>
               <div className="input-grid-2" style={{ marginBottom: "12px" }}>
-                <div className="inline-input-group">
+                <div className="inline-input-group" suppressHydrationWarning>
                   <label className="inline-label">Cargo Size / Dimensions *</label>
                   <input type="text" name="cargoSize" className="field-input" placeholder="e.g. 40ft container: 2 pallets" value={form.cargoSize} onChange={handleChange} required />
                 </div>
-                <div className="inline-input-group">
+                <div className="inline-input-group" suppressHydrationWarning>
                   <label className="inline-label">Cargo Value *</label>
                   <div className="dollar-input-wrapper">
                     <span className="dollar-prefix">$</span>
@@ -188,11 +212,11 @@ export default function GetCoveragePage() {
                 </div>
               </div>
               <div className="input-grid-2">
-                <div className="inline-input-group">
+                <div className="inline-input-group" suppressHydrationWarning>
                   <label className="inline-label">Starting Port / Location *</label>
                   <input type="text" name="startPort" className="field-input" placeholder="Port of Los Angeles" value={form.startPort} onChange={handleChange} required />
                 </div>
-                <div className="inline-input-group">
+                <div className="inline-input-group" suppressHydrationWarning>
                   <label className="inline-label">Ending Port / Location *</label>
                   <input type="text" name="endPort" className="field-input" placeholder="Port of Rotterdam" value={form.endPort} onChange={handleChange} required />
                 </div>
@@ -233,14 +257,14 @@ export default function GetCoveragePage() {
             <div className="form-section">
               <p className="form-section-title">Insurance Details</p>
               <div className="input-grid-2" style={{ marginBottom: "12px" }}>
-                <div className="inline-input-group">
+                <div className="inline-input-group" suppressHydrationWarning>
                   <label className="inline-label">Deductible Amount *</label>
                   <div className="dollar-input-wrapper">
                     <span className="dollar-prefix">$</span>
                     <input type="number" name="deductibleAmount" className="field-input dollar-input" placeholder="25,000" value={form.deductibleAmount} onChange={handleChange} required min="0" />
                   </div>
                 </div>
-                <div className="inline-input-group">
+                <div className="inline-input-group" suppressHydrationWarning>
                   <label className="inline-label">Insurance Premium *</label>
                   <div className="dollar-input-wrapper">
                     <span className="dollar-prefix">$</span>
@@ -255,14 +279,14 @@ export default function GetCoveragePage() {
                 </span>
               ) : (
                 <div className="input-grid-2">
-                  <div className="inline-input-group">
+                  <div className="inline-input-group" suppressHydrationWarning>
                     <label className="inline-label">Deductible #2</label>
                     <div className="dollar-input-wrapper">
                       <span className="dollar-prefix">$</span>
                       <input type="number" name="deductible2" className="field-input dollar-input" placeholder="10,000" value={form.deductible2} onChange={handleChange} />
                     </div>
                   </div>
-                  <div className="inline-input-group">
+                  <div className="inline-input-group" suppressHydrationWarning>
                     <label className="inline-label">Premium #2</label>
                     <div className="dollar-input-wrapper">
                       <span className="dollar-prefix">$</span>

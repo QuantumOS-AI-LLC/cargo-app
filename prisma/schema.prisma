@@ -115,8 +115,15 @@ model Application {
 
   // Admin fee is calculated: 2.5% domestic, 3.25% international of deductible
   adminFee         Float
+  
+  // Stripe Integration
+  isPaid           Boolean           @default(false)
+  stripeSessionId  String?
+  stripePaymentId  String?
+  paidAt           DateTime?
 
   status           ApplicationStatus @default(SUBMITTED)
+  referred_by      String?
   adminNotes       String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
