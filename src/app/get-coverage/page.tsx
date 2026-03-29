@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import Script from "next/script";
+import LeadTracker from "@/components/LeadTracker";
 
 type CargoType = "HARD_DURABLE" | "CLOTHES_APPAREL";
 type ShippingMode = "SEA" | "AIR" | "LAND";
@@ -101,6 +102,8 @@ export default function GetCoveragePage() {
 
   return (
     <div className="page-wrapper">
+      <LeadTracker />
+      
       {/* Navbar */}
       <nav className="navbar">
         <div className="navbar-inner">

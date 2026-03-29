@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
+    const amId = req.cookies.get("am_id")?.value;
 
     const user = await prisma.user.create({
       data: {
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
         name: name || email.split("@")[0],
         password: hashedPassword,
         role: "USER",
+        affiliateId: amId || null,
       },
     });
 

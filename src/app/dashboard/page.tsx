@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import ApplicationDetails from "@/components/ApplicationDetails";
+import LeadTracker from "@/components/LeadTracker";
 
 type Application = {
   id: string;
@@ -67,6 +68,8 @@ export default function DashboardPage() {
 
   return (
     <div className="page-wrapper">
+      <LeadTracker />
+      
       {/* Navbar */}
       <nav className="navbar">
         <div className="navbar-inner">

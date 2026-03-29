@@ -50,6 +50,9 @@ model User {
   accounts      Account[]
   sessions      Session[]
   applications  Application[]
+  
+  // Affiliate Tracking
+  affiliateId   String?
 }
 
 model Account {

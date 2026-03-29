@@ -5,10 +5,27 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
+import { cookies } from "next/headers";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma),
+  events: {
+    async createUser({ user }) {
+      try {
+        const cookieStore = await cookies();
+        const amId = cookieStore.get("am_id")?.value;
+        if (amId && user.id) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { affiliateId: amId },
+          });
+        }
+      } catch (err) {
+        console.error("Failed to capture am_id for new user:", err);
+      }
+    },
+  },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,

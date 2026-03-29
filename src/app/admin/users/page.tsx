@@ -7,6 +7,7 @@ type User = {
   name: string | null;
   email: string;
   role: string;
+  affiliateId: string | null;
   createdAt: string;
   _count: { applications: number };
 };
@@ -65,6 +66,7 @@ export default function AdminUsersPage() {
                 <tr>
                   <th>Name / Email</th>
                   <th>Role</th>
+                  <th>Referred By</th>
                   <th>Applications</th>
                   <th>Joined</th>
                   <th>Actions</th>
@@ -81,6 +83,15 @@ export default function AdminUsersPage() {
                       <span className={`badge ${u.role === "ADMIN" ? "badge-approved" : "badge-pending"}`}>
                         {u.role.toLowerCase()}
                       </span>
+                    </td>
+                    <td>
+                      {u.affiliateId ? (
+                        <span style={{ fontFamily: "monospace", fontSize: "11px", background: "var(--border-light)", padding: "4px 6px", borderRadius: "4px" }}>
+                          {u.affiliateId}
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>Organic</span>
+                      )}
                     </td>
                     <td>{u._count.applications}</td>
                     <td style={{ color: "var(--text-muted)", fontSize: "12px" }}>
