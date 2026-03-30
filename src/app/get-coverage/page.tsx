@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import Script from "next/script";
@@ -11,8 +11,10 @@ type CargoType = "HARD_DURABLE" | "CLOTHES_APPAREL";
 type ShippingMode = "SEA" | "AIR" | "LAND";
 type ContainerGrade = "NEW" | "ONE_TRIP" | "CARGO_WORTHY" | "WIND_WATER_TIGHT";
 
-export default function GetCoveragePage() {
+function GetCoverageForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
   const [cargoType, setCargoType] = useState<CargoType>("HARD_DURABLE");
   const [shippingMode, setShippingMode] = useState<ShippingMode>("SEA");
   const [containerGrade, setContainerGrade] = useState<ContainerGrade>("CARGO_WORTHY");
@@ -26,6 +28,32 @@ export default function GetCoveragePage() {
     deductibleAmount: "", insurancePremium: "", deductible2: "", premium2: "",
   });
 
+  useEffect(() => {
+    if (editId) {
+      setLoading(true);
+      fetch(`/api/applications/${editId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.application) {
+            const ap = data.application;
+            setForm({
+              fullName: ap.fullName, company: ap.company, email: ap.email, phone: ap.phone,
+              cargoSize: ap.cargoSize, cargoValue: ap.cargoValue.toString(), startPort: ap.startPort, endPort: ap.endPort,
+              deductibleAmount: ap.deductibleAmount.toString(), insurancePremium: ap.insurancePremium.toString(), 
+              deductible2: ap.deductible2 ? ap.deductible2.toString() : "", premium2: ap.premium2 ? ap.premium2.toString() : "",
+            });
+            setCargoType(ap.cargoType as CargoType);
+            setShippingMode(ap.shippingMode as ShippingMode);
+            setContainerGrade(ap.containerGrade as ContainerGrade);
+            setIsInternational(ap.isInternational);
+            setShowSecond(!!ap.deductible2);
+          }
+        })
+        .catch(err => console.error("Error fetching application:", err))
+        .finally(() => setLoading(false));
+    }
+  }, [editId]);
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
   }
@@ -34,8 +62,11 @@ export default function GetCoveragePage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const res = await fetch("/api/applications", {
-      method: "POST",
+    const endpoint = editId ? `/api/applications/${editId}` : "/api/applications";
+    const method = editId ? "PATCH" : "POST";
+    
+    const res = await fetch(endpoint, {
+      method: method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
@@ -53,45 +84,47 @@ export default function GetCoveragePage() {
     if (!res.ok) {
       setError(d.error || "Failed to submit application.");
     } else {
-      try {
-        if (typeof window !== "undefined" && (window as any).Refferq) {
-          const promiseOrVoid = (window as any).Refferq.trackConversion({
-            email: form.email,
-            name: form.fullName,
-            amount: Math.round((d.application?.adminFee || 0) * 100), // convert to cents
-            currency: 'USD',
-            orderId: d.application?.id // use application ID as orderId
-          });
-          if (promiseOrVoid instanceof Promise) {
-            await promiseOrVoid;
-          } else {
-             await new Promise(r => setTimeout(r, 800)); // Give network time to send
+      // IF NOT EDITING: We perform the affiliate tracking
+      if (!editId) {
+        try {
+          if (typeof window !== "undefined" && (window as any).Refferq) {
+            const promiseOrVoid = (window as any).Refferq.trackConversion({
+              email: form.email,
+              name: form.fullName,
+              amount: Math.round((d.application?.adminFee || 0) * 100),
+              currency: 'USD',
+              orderId: d.application?.id
+            });
+            if (promiseOrVoid instanceof Promise) {
+              await promiseOrVoid;
+            } else {
+               await new Promise(r => setTimeout(r, 800));
+            }
           }
+        } catch (e) {
+          console.error("Refferq tracking error:", e);
         }
-      } catch (e) {
-        console.error("Refferq tracking error:", e);
+
+        try {
+          if (typeof window !== "undefined" && (window as any).affiliateManager) {
+            const names = form.fullName.trim().split(" ");
+            const firstName = names[0];
+            const lastName = names.slice(1).join(" ");
+            
+            (window as any).affiliateManager.trackLead({
+              firstName: firstName || "",
+              lastName: lastName || "",
+              email: form.email,
+            }, function() {
+              console.log('Lead created successfully');
+            });
+          }
+        } catch (e) {
+          console.error("LeadConnector tracking error:", e);
+        }
       }
 
-      // Add LeadConnector tracking
-      try {
-        if (typeof window !== "undefined" && (window as any).affiliateManager) {
-          const names = form.fullName.trim().split(" ");
-          const firstName = names[0];
-          const lastName = names.slice(1).join(" ");
-          
-          (window as any).affiliateManager.trackLead({
-            firstName: firstName || "",
-            lastName: lastName || "",
-            email: form.email,
-          }, function() {
-            console.log('Lead created successfully');
-          });
-        }
-      } catch (e) {
-        console.error("LeadConnector tracking error:", e);
-      }
-
-      // Wait 1 second before redirecting as per documentation
+      // Wait 1 second before redirecting to allow any scripts to finish sending data
       setTimeout(() => {
         router.push("/dashboard");
       }, 1000);
@@ -300,9 +333,8 @@ export default function GetCoveragePage() {
               )}
             </div>
 
-            {/* Submit */}
-            <button type="submit" className={`submit-btn ${form.fullName && form.deductibleAmount ? "ready" : ""}`} disabled={loading}>
-              {loading ? "Submitting..." : "Submit Application →"}
+            <button type="submit" disabled={loading} className="btn-primary" style={{ width: "100%", marginTop: "32px" }}>
+              {loading ? (editId ? "Updating application..." : "Submitting...") : (editId ? "Save Changes" : "Submit Request")}
             </button>
             <p className="submit-disclaimer">
               By submitting, you agree to our Terms of Service and acknowledge that CargoDeductible is not an insurance provider. Admin fees are non-refundable.
@@ -315,5 +347,13 @@ export default function GetCoveragePage() {
         © 2026 <a href={process.env.NEXT_PUBLIC_APP_URL || "/"}>CargoDeductible</a> — We cover your deductible so you don&apos;t have out-of-pocket costs.
       </footer>
     </div>
+  );
+}
+
+export default function GetCoveragePage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>Loading coverage form...</div>}>
+      <GetCoverageForm />
+    </Suspense>
   );
 }

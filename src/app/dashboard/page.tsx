@@ -24,6 +24,17 @@ type Application = {
   shippingMode: string;
   isInternational: boolean;
   createdAt: string;
+  // Stripe receipt data
+  stripePaymentId?: string | null;
+  stripeChargeId?: string | null;
+  stripeReceiptUrl?: string | null;
+  stripeCardBrand?: string | null;
+  stripeCardLast4?: string | null;
+  paidAt?: string | null;
+  // Manual payment data
+  manualPaymentRef?: string | null;
+  manualPaymentNote?: string | null;
+  manualPaymentBy?: string | null;
 };
 
 const STATUS_CLASS: Record<string, string> = {
@@ -161,6 +172,15 @@ export default function DashboardPage() {
                       <span className="meta-icon">🕐</span>
                       {formatDate(app.createdAt)}
                     </div>
+                    {!app.isPaid && app.status !== "APPROVED" && app.status !== "REJECTED" && (
+                      <a
+                        href={`/get-coverage?edit=${app.id}`}
+                        onClick={e => e.stopPropagation()}
+                        style={{ marginLeft: "auto", fontSize: "12px", color: "var(--blue-accent)", fontWeight: 600, textDecoration: "none", padding: "4px 10px", border: "1px solid var(--blue-accent)", borderRadius: "6px" }}
+                      >
+                        ✏️ Edit
+                      </a>
+                    )}
                   </div>
                 </div>
               ))}

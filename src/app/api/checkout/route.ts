@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         applicationId: application.id,
         userId: application.userId,
       },
-      customer_email: application.email,
+      customer_email: session.user.email || application.email,
     });
 
     // Save session ID to the application

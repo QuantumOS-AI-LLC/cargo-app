@@ -122,8 +122,17 @@ model Application {
   // Stripe Integration
   isPaid           Boolean           @default(false)
   stripeSessionId  String?
-  stripePaymentId  String?
+  stripePaymentId  String?           // Payment Intent ID (pi_xxx)
+  stripeChargeId   String?           // Charge ID (ch_xxx)
+  stripeReceiptUrl String?           // Hosted Stripe receipt URL
+  stripeCardBrand  String?           // e.g. "Visa"
+  stripeCardLast4  String?           // e.g. "4242"
   paidAt           DateTime?
+
+  // Manual Payment Override (for wire transfers, checks, etc.)
+  manualPaymentRef  String?           // e.g. "Wire Ref #TXN-20240331"
+  manualPaymentNote String?           // e.g. "Paid via bank wire"
+  manualPaymentBy   String?           // Admin name/email who confirmed
 
   status           ApplicationStatus @default(SUBMITTED)
   referred_by      String?

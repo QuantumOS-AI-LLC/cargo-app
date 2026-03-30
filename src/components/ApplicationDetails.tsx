@@ -16,6 +16,17 @@ type Application = {
   isPaid: boolean;
   status: string;
   isInternational: boolean;
+  // Stripe receipt data
+  stripePaymentId?: string | null;
+  stripeChargeId?: string | null;
+  stripeReceiptUrl?: string | null;
+  stripeCardBrand?: string | null;
+  stripeCardLast4?: string | null;
+  paidAt?: string | null;
+  // Manual payment data
+  manualPaymentRef?: string | null;
+  manualPaymentNote?: string | null;
+  manualPaymentBy?: string | null;
 };
 
 function formatMoney(n: number) {
@@ -93,7 +104,7 @@ export default function ApplicationDetails({ application }: { application: Appli
         <div className="quote-row">
           <span className="quote-label">Admin Fee Rate</span>
           <span className="quote-value" style={{ color: "#60a5fa" }}>
-            {application.isInternational ? "3.25%" : "2.5%"}
+            {application.isInternational ? "3.25%" : "2.5%"} <span style={{fontSize: "12px", color: "rgba(255,255,255,0.4)"}}>+ 0.1% per 1,000km</span>
           </span>
         </div>
 
@@ -124,12 +135,103 @@ export default function ApplicationDetails({ application }: { application: Appli
 
       {/* Pay Button (if not paid) */}
       {!application.isPaid ? (
-        <button className="checkout-btn" onClick={handlePay} disabled={loading}>
-          <span>💳</span> {loading ? "Connecting to Stripe..." : `Get CargoDeductible Plan — ${formatMoneyCents(application.adminFee)}`}
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "24px" }}>
+          <button className="checkout-btn" onClick={handlePay} disabled={loading} style={{ margin: 0 }}>
+            <span>💳</span> {loading ? "Connecting to Stripe..." : `Get CargoDeductible Plan — ${formatMoneyCents(application.adminFee)}`}
+          </button>
+          
+          {application.status !== "APPROVED" && application.status !== "REJECTED" && (
+             <a 
+               href={`/get-coverage?edit=${application.id}`}
+               className="action-btn"
+               style={{ 
+                 margin: 0, display: "block", textAlign: "center", textDecoration: "none", 
+                 background: "rgba(255,255,255,0.05)", color: "white", padding: "12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" 
+               }}
+             >
+               ✏️ Edit Application Specs
+             </a>
+          )}
+        </div>
       ) : (
-        <div className="success-message" style={{ margin: "20px 0", textAlign: "center", padding: "16px" }}>
-          ✅ This application is fully covered. Payment received.
+        /* Payment Receipt Card */
+        <div style={{ marginTop: "24px", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: "16px", padding: "20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", paddingBottom: "16px", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ fontSize: "20px" }}>✅</span>
+            <div>
+              <div style={{ fontWeight: 700, color: "#10b981", fontSize: "15px" }}>Payment Confirmed</div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
+                {application.paidAt ? new Date(application.paidAt).toLocaleString("en-US", { dateStyle: "long", timeStyle: "short" }) : ""}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px" }}>
+            {/* Payment Method */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Payment Method</span>
+              <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                {application.manualPaymentRef
+                  ? "🏦 Manual / Offline"
+                  : `💳 ${application.stripeCardBrand ? application.stripeCardBrand.charAt(0).toUpperCase() + application.stripeCardBrand.slice(1) : "Card"} ···· ${application.stripeCardLast4 || "****"}`}
+              </span>
+            </div>
+
+            {/* Payment Intent ID (Stripe only) */}
+            {application.stripePaymentId && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Payment Intent ID</span>
+                <span style={{ fontFamily: "monospace", fontSize: "11px", color: "#2563eb", background: "#eff6ff", padding: "3px 8px", borderRadius: "6px", wordBreak: "break-all" }}>
+                  {application.stripePaymentId}
+                </span>
+              </div>
+            )}
+
+            {/* Charge ID (Stripe only) */}
+            {application.stripeChargeId && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Charge ID</span>
+                <span style={{ fontFamily: "monospace", fontSize: "11px", color: "#2563eb", background: "#eff6ff", padding: "3px 8px", borderRadius: "6px", wordBreak: "break-all" }}>
+                  {application.stripeChargeId}
+                </span>
+              </div>
+            )}
+
+            {/* Manual Payment Ref */}
+            {application.manualPaymentRef && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Transaction Ref</span>
+                <span style={{ fontFamily: "monospace", fontSize: "11px", color: "#92400e", background: "#fef3c7", padding: "3px 8px", borderRadius: "6px" }}>
+                  {application.manualPaymentRef}
+                </span>
+              </div>
+            )}
+
+            {/* Manual Payment Note */}
+            {application.manualPaymentNote && (
+              <div style={{ marginTop: "4px", padding: "10px", background: "var(--border-light)", borderRadius: "8px", fontSize: "12px", color: "var(--text-secondary)", fontStyle: "italic" }}>
+                {application.manualPaymentNote}
+              </div>
+            )}
+
+            {/* Amount */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "10px", borderTop: "1px solid var(--border)" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Amount Paid</span>
+              <span style={{ fontWeight: 700, color: "#10b981", fontSize: "16px" }}>{formatMoneyCents(application.adminFee)}</span>
+            </div>
+
+            {/* View Stripe Receipt Button */}
+            {application.stripeReceiptUrl && (
+              <a
+                href={application.stripeReceiptUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ marginTop: "8px", display: "block", textAlign: "center", padding: "10px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px", color: "#1d4ed8", textDecoration: "none", fontSize: "13px", fontWeight: 600 }}
+              >
+                🧾 View Official Stripe Receipt ↗
+              </a>
+            )}
+          </div>
         </div>
       )}
 

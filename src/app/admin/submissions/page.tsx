@@ -24,9 +24,19 @@ type Application = {
   adminFee: number;
   status: string;
   adminNotes: string | null;
+  isPaid: boolean;
+  stripePaymentId: string | null;
+  stripeChargeId: string | null;
+  stripeReceiptUrl: string | null;
+  stripeCardBrand: string | null;
+  stripeCardLast4: string | null;
+  paidAt: string | null;
+  manualPaymentRef: string | null;
+  manualPaymentNote: string | null;
+  manualPaymentBy: string | null;
   createdAt: string;
   updatedAt: string;
-  user: { name: string | null; email: string };
+  user: { name: string | null; email: string; affiliateId?: string | null };
 };
 
 const STATUS_CLASS: Record<string, string> = {
@@ -45,6 +55,9 @@ export default function AdminSubmissionsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState("APPROVED");
   const [viewingApp, setViewingApp] = useState<Application | null>(null);
+  const [manualRef, setManualRef] = useState("");
+  const [manualNote, setManualNote] = useState("");
+  const [manualLoading, setManualLoading] = useState(false);
 
   async function loadApps(statusFilter?: string) {
     setLoading(true);
@@ -114,7 +127,7 @@ export default function AdminSubmissionsPage() {
       "ID", "Date Submitted", "Status", "Company", "Requester Name", "Requester Email", "Requester Phone",
       "Cargo Type", "Shipping Mode", "Cargo Size", "Cargo Value ($)", "International", "Start Port", "End Port",
       "Container Grade", "Insurance Premium ($)", "Deductible Amount ($)", 
-      "Premium 2 ($)", "Deductible 2 ($)", "Admin Fee ($)", "Admin Notes", "User Account Email", "Last Updated"
+      "Premium 2 ($)", "Deductible 2 ($)", "Admin Fee ($)", "Admin Notes", "User Account Email", "Affiliate ID", "Last Updated"
     ];
     
     const rows = appsToExport.map(app => [
@@ -140,6 +153,7 @@ export default function AdminSubmissionsPage() {
       app.adminFee,
       `"${(app.adminNotes || "").replace(/"/g, '""')}"`,
       `"${app.user?.email || ""}"`,
+      `"${app.user?.affiliateId || ""}"`,
       `"${new Date(app.updatedAt).toLocaleString()}"`,
     ]);
     
@@ -261,6 +275,7 @@ export default function AdminSubmissionsPage() {
                   <th>Route</th>
                   <th>Deductible</th>
                   <th>Admin Fee</th>
+                  <th>Referred By</th>
                   <th>User</th>
                   <th>Date</th>
                   <th>Status</th>
@@ -294,6 +309,13 @@ export default function AdminSubmissionsPage() {
                     </td>
                     <td>${app.deductibleAmount.toLocaleString()}</td>
                     <td>${app.adminFee.toFixed(2)}</td>
+                    <td style={{ fontSize: "12px" }}>
+                       {app.user?.affiliateId ? (
+                         <span style={{ fontFamily: "monospace", background: "var(--border-light)", padding: "2px 4px", borderRadius: "4px" }}>{app.user.affiliateId}</span>
+                       ) : (
+                         <span style={{ color: "var(--text-muted)" }}>Organic</span>
+                       )}
+                    </td>
                     <td style={{ fontSize: "12px", color: "var(--text-muted)" }}>{app.user?.email}</td>
                     <td style={{ fontSize: "12px", color: "var(--text-muted)" }}>
                       {new Date(app.createdAt).toLocaleDateString()}
@@ -391,6 +413,7 @@ export default function AdminSubmissionsPage() {
                 <h3 style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "12px" }}>Status & Admin</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px" }}>
                   <div><span style={{ color: "var(--text-muted)" }}>Status:</span> <span className={STATUS_CLASS[viewingApp.status] || "badge"} style={{ marginLeft: "8px" }}>{viewingApp.status}</span></div>
+                  <div><span style={{ color: "var(--text-muted)" }}>Affiliate ID:</span> <strong style={{color:"#0f172a"}}>{viewingApp.user?.affiliateId || "Organic"}</strong></div>
                   <div><span style={{ color: "var(--text-muted)" }}>Date Submitted:</span> <strong style={{color:"#0f172a"}}>{new Date(viewingApp.createdAt).toLocaleString()}</strong></div>
                   <div><span style={{ color: "var(--text-muted)" }}>Last Updated:</span> <strong style={{color:"#0f172a"}}>{new Date(viewingApp.updatedAt).toLocaleString()}</strong></div>
                   <div><span style={{ color: "var(--text-muted)" }}>Application ID:</span> <strong style={{color:"#0f172a", fontSize:"12px", fontFamily:"monospace"}}>{viewingApp.id}</strong></div>
@@ -406,6 +429,105 @@ export default function AdminSubmissionsPage() {
                  </div>
               </div>
             )}
+
+            {/* Payment Section */}
+            <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid #e2e8f0" }}>
+              <h3 style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "16px" }}>Payment</h3>
+              
+              {viewingApp.isPaid ? (
+                /* Paid — Show receipt data */
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                    <span style={{ fontSize: "16px" }}>✅</span>
+                    <span style={{ fontWeight: 700, color: "#16a34a" }}>Payment Confirmed</span>
+                    <span style={{ marginLeft: "auto", color: "#64748b", fontSize: "12px" }}>{viewingApp.paidAt ? new Date(viewingApp.paidAt).toLocaleString() : ""}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: "#64748b" }}>Method</span>
+                    <strong>{viewingApp.manualPaymentRef ? "🏦 Manual / Offline" : `💳 ${viewingApp.stripeCardBrand ? viewingApp.stripeCardBrand.charAt(0).toUpperCase() + viewingApp.stripeCardBrand.slice(1) : "Card"} ···· ${viewingApp.stripeCardLast4 || "****"}`}</strong>
+                  </div>
+                  {viewingApp.stripePaymentId && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ color: "#64748b" }}>Payment Intent ID</span>
+                      <code style={{ fontSize: "11px", background: "#eff6ff", padding: "2px 8px", borderRadius: "4px", color: "#1d4ed8" }}>{viewingApp.stripePaymentId}</code>
+                    </div>
+                  )}
+                  {viewingApp.stripeChargeId && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ color: "#64748b" }}>Charge ID</span>
+                      <code style={{ fontSize: "11px", background: "#eff6ff", padding: "2px 8px", borderRadius: "4px", color: "#1d4ed8" }}>{viewingApp.stripeChargeId}</code>
+                    </div>
+                  )}
+                  {viewingApp.manualPaymentRef && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ color: "#64748b" }}>Transaction Ref</span>
+                      <code style={{ fontSize: "11px", background: "#fefce8", padding: "2px 8px", borderRadius: "4px", color: "#92400e" }}>{viewingApp.manualPaymentRef}</code>
+                    </div>
+                  )}
+                  {viewingApp.manualPaymentNote && (
+                    <div style={{ color: "#64748b", fontStyle: "italic", fontSize: "12px" }}>{viewingApp.manualPaymentNote}</div>
+                  )}
+                  {viewingApp.manualPaymentBy && (
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#64748b" }}>Confirmed By</span>
+                      <span style={{ fontWeight: 600 }}>{viewingApp.manualPaymentBy}</span>
+                    </div>
+                  )}
+                  {viewingApp.stripeReceiptUrl && (
+                    <a href={viewingApp.stripeReceiptUrl} target="_blank" rel="noopener noreferrer"
+                      style={{ marginTop: "4px", textAlign: "center", display: "block", padding: "8px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "6px", color: "#1d4ed8", textDecoration: "none", fontSize: "13px", fontWeight: 600 }}
+                    >
+                      🧾 View Official Stripe Receipt ↗
+                    </a>
+                  )}
+                </div>
+              ) : (
+                /* Unpaid — Show manual payment form */
+                <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <p style={{ fontSize: "13px", color: "#92400e", margin: 0 }}>⚠️ No payment recorded. Mark as manually paid (wire transfer, check, etc.).</p>
+                  <div>
+                    <label style={{ fontSize: "12px", fontWeight: 600, color: "#64748b", display: "block", marginBottom: "4px" }}>Transaction Reference *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Wire Ref #TXN-20240331"
+                      value={manualRef}
+                      onChange={e => setManualRef(e.target.value)}
+                      style={{ width: "100%", padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "12px", fontWeight: 600, color: "#64748b", display: "block", marginBottom: "4px" }}>Payment Note (optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Paid via bank wire from ACME Corp on March 31"
+                      value={manualNote}
+                      onChange={e => setManualNote(e.target.value)}
+                      style={{ width: "100%", padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <button
+                    disabled={!manualRef || manualLoading}
+                    onClick={async () => {
+                      if (!manualRef) return;
+                      setManualLoading(true);
+                      await fetch("/api/admin/submissions", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ applicationId: viewingApp.id, manualPayment: true, manualPaymentRef: manualRef, manualPaymentNote: manualNote }),
+                      });
+                      setManualLoading(false);
+                      setManualRef("");
+                      setManualNote("");
+                      setViewingApp(null);
+                      loadApps(filter);
+                    }}
+                    style={{ padding: "10px 20px", background: manualRef ? "#f59e0b" : "#e2e8f0", color: manualRef ? "white" : "#94a3b8", border: "none", borderRadius: "6px", fontWeight: 700, cursor: manualRef ? "pointer" : "not-allowed", fontSize: "13px" }}
+                  >
+                    {manualLoading ? "Processing..." : "✅ Mark as Manually Paid"}
+                  </button>
+                </div>
+              )}
+            </div>
             
             <div style={{ marginTop: "32px", display: "flex", justifyContent: "flex-end" }}>
                <button className="btn-primary" onClick={() => setViewingApp(null)}>Close</button>
