@@ -52,6 +52,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Fire webhook for new application submission (full record)
+    import("@/lib/webhook").then(({ sendWebhook }) => {
+      sendWebhook("application.submitted", application);
+    });
+
     return NextResponse.json({ success: true, application }, { status: 201 });
   } catch (error) {
     console.error("Application error:", error);
