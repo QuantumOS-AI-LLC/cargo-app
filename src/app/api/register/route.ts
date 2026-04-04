@@ -41,6 +41,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Fire webhook for new user registration (full record minus password)
+    import("@/lib/webhook").then(({ sendWebhook }) => {
+      const { password: _, ...userData } = user;
+      sendWebhook("user.created", userData);
+    });
+
     return NextResponse.json(
       { message: "Account created successfully", userId: user.id },
       { status: 201 }

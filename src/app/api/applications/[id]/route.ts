@@ -93,6 +93,11 @@ export async function PATCH(
       },
     });
 
+    // Fire webhook for user modifying their application (full record)
+    import("@/lib/webhook").then(({ sendWebhook }) => {
+      sendWebhook("application.user_updated", updated);
+    });
+
     return NextResponse.json({ application: updated });
   } catch (err) {
     console.error("Error updating application:", err);

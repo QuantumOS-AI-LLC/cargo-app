@@ -32,6 +32,17 @@ export async function POST(req: NextRequest) {
         where: { id: { in: applicationIds } },
         data: { status },
       });
+
+      // Fire webhook for bulk status update
+      import("@/lib/webhook").then(({ sendWebhook }) => {
+        sendWebhook("application.bulk_updated", {
+          applicationIds,
+          status,
+          updatedBy: (session.user as any).email || (session.user as any).name || "Admin",
+          timestamp: new Date().toISOString(),
+        });
+      });
+
       return NextResponse.json({ success: true, count: applicationIds.length });
     }
 

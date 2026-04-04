@@ -52,6 +52,17 @@ export async function PATCH(req: NextRequest) {
     where: { id: applicationId },
     data: updateData,
   });
+
+  // Fire webhook for application status update if status changed
+  if (status !== undefined || manualPayment === true) {
+    import("@/lib/webhook").then(({ sendWebhook }) => {
+      sendWebhook("application.updated", {
+        ...application,
+        updatedBy: (session.user as any).email || (session.user as any).name || "Admin",
+      });
+    });
+  }
+
   return NextResponse.json({ application });
 }
 
